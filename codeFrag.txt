@@ -1,0 +1,273 @@
+codeFrag.txt = fragments using VScode 2023-4, some tested, some experimental
+               -- not finished code --
+               
+================== SEQUENTIAL AUTO COMMAND ===================
+ src: RomiBase AM-23
+ public class AutonomousDistance extends SequentialCommandGroup {
+  /* construct new Autonomous sequence using encoder-based distance.
+   * drive a specified distance, turn 180 deg, (could) drive back and turn
+   * again if turns are accurate enough.
+   * @param drivetrain the subsystem to be controlled
+   */
+  public AutonomousDistance(Drivetrain drivetrain) {
+    addCommands(
+        new DriveDistance(1.0, 30, drivetrain),
+        new WaitCommand(5.0),
+        new TurnDegrees(0.7, 180, drivetrain));
+        // new WaitCommand(5.0),
+        // new DriveDistance(1, 30, drivetrain),
+        // new WaitCommand(5.0),
+        // new TurnDegrees(1, -180, drivetrain));
+  }
+}  // end class
+    
+
+ ========  SET SMARTDASHBOARD OPTIONS WHEN OPTIONS ARE COMMANDS ========
+    m_chooser.setDefaultOption("AutoTrajRams", generateRamseteCommand());
+    m_chooser.addOption("AutoDistance", new AutoDist(distance, m_drivetrain));
+    m_chooser.addOption("AutoPath", new AutoPath(trajectory, m_drivetrain);
+    
+    
+=== METHOD TO RETURN [TO .SETDEFAULT()] AN EXISTING CMD, WHICH GETS LIVE 
+    JOYSTICK PARAMETERS AS SUPPLIERS --OVERLY COMPLEX WAY TO DO THIS --  
+     src: ROMI-REFE TEMPLATE'S RoboCont
+     // work with an existing AD command having appropriate constructor
+    public Command getArcadeDriveCommand() {
+    return new ArcadeDrive(m_drivetrain, () -> -m_controller.getRawAxis(1),
+     () -> m_controller.getRawAxis(2));
+    }
+  
+still lambda-obscure but a more compact way to set default:
+ SET DEFAULT CMD TO NEW 'RUN CMD', MADE FROM SUBSYSTEM METHOD, ALSO AVOIDS
+    MAKING A NAMED CMD INSTANCE (OK IF OTHER SYSTEMS DON'T NEED IT TOO)
+        m_robotDrive.setDefaultCommand(
+        new RunCommand( () ->
+             m_robotDrive.arcadeDrive(-m_driverController.getLeftY(),
+                    -m_driverController.getRightX()),m_robotDrive));
+                    
+  =================== FUN THINGS TO DO WITH BUTTONS  ==================   
+
+BUTTON PRESS TOGGLES RELAY ON, SECOND PRESS TOGGLES IT OFF (LED EXAMPLE)
+  [? if possible, so I just used code as in FRC example for 2 buttons, v.i.]
+  if Relay holds last values it got from set( ___) maybe could do a 
+  RunOnce lambda to turnOff and turnOn using toggleOnTrue method ?
+src:docs.wpilib.org/en/stable/docs/software/commandbased/binding-commands-
+  to-triggers.html
+github.wpilib.org/allwpilib/docs/release/java/edu/wpi/first/wpilibj/Relay.html
+github.wpilib.org/allwpilib/docs/release/java/edu/wpi/first/wpilibj2/command/StartEndCommand.html
+  make relay and button instances (robotInit or RC constructor),
+  make trigger button on helper's controller (button A on Xbox)
+  Trigger liteButton = new JoystickButton(helperController, 1);// (A) 
+  make Cmds for relay
+    // ? if this works without true subsystem param, ? would relay hold value
+Command turnOn = runOnce(() -> myRelay.set(Relay.Value.kForward), myRelay);
+Command turnOff = runOnce(() -> myRelay.set(Relay.Value.kOff), myRelay);
+  private final Relay myRelay = new Relay(0); // RIO relay port 0 
+  //in Robot.java teleoPeriodic or robotPeriodic
+  liteButton.toggleOnTrue(Commands.startEnd(myRelay::turnOn,
+    myRelay::turnOff, myRelay));
+    alt: w/o instancing Button
+      new JoystickButton(helperController, 1)
+           .toggleonTrue(Commands.startEnd( same ....
+           
+ ONE BUTTON TURNS ON RELAY, ANOTHER TURNS IT OFF -- assumes the Relay object
+    will hold last set values
+  src: github.com/wpilibsuite/allwpilib/blob/main/wpilibjExamples/src/main/java/edu/wpi/first/wpilibj/examples/relay/Robot.java     
+       github.wpilib.org/allwpilib/docs/release/java/edu/wpi/first/wpilibj/Relay.html
+     
+   // in RobotInit or RC constructor (configButtonBinding)
+   //  given Xbox controller shooterJoystick, import wpilib.Relay library
+   private final Relay liteRelay = new Relay(0); // on port 0
+   // in autoInit or robotInit to have lites on
+    liteRelay.set(Relay.Value.kForward);
+    
+    //  for button control in teleopPeriodic or robotPeriodic
+   
+    boolean liteOff = shooterJoystick.getRawButton(3); // (X)
+    boolean liteOn = shooterJoystick.getRawButton(2); // (B)
+
+    /* what the Relay.Value settings do: 
+     * kOn sets both output pins to 12V, kOff sets both to 0V,
+     * kForward sets forward pin (+) to 12V and reverse contact (-) to 0V,
+     * kReverse sets reverse (-) pin to 12V, and forward (+) pin to 0V.
+     */
+    if (liteOff) {  // will relay hold values last set ?
+      liteRelay.set(Relay.Value.kOff);
+    } else if (liteOn) {
+      liteRelay.set(Relay.Value.kForward);         
+                         
+BUTTON PRESS MAKES/RUNS INSTANT CMD FROM DRIVE CLASS's METHOD
+src: RomiGyroDrivePID-C  RC constructor
+  private void configureButtonBindings() {
+    // Drive at half speed when the right bumper is held
+    new JoystickButton(m_driverController, 6)
+        .onTrue(new InstantCommand(() -> m_robotDrive.setMaxOutput(0.5)))
+        .onFalse(new InstantCommand(() -> m_robotDrive.setMaxOutput(1)));
+ 
+              
+BUTTON PRESS RUNS EXISTING CMD With TIMEOUT
+src: RomiGyroDrivePID-C RC constructor
+    // Turn to 90 degrees when the 'B' button is pressed, 5 second timeout
+    new JoystickButton(m_driverController, 2)
+        .onTrue(new TurnToAngle(90, m_robotDrive).withTimeout(5));
+
+    // Turn to -90 degrees with a profile when the 'X' button is pressed,
+           //with a 5 second timeout
+    new JoystickButton(m_driverController, 3)
+        .onTrue(new TurnToAngleProfiled(-90, m_robotDrive).withTimeout(5));
+
+
+BUTTON ACTIVATED PID COMMAND + CONTROLLER TO DRIVE STRAIGHT USING GYRO --
+     FAST WAY TO PROVIDE PID CONTROL TO AN EXISTING SUBSYS METHOD
+src: RomiGyroDrivePID-C
+   // Stabilize to drive straight w/ gyro when R bumper is held
+    // in teleOp; PUT IN RC OR robotInit
+    new JoystickButton(m_controller, 6)
+        .whileTrue(
+            new PIDCommand( //kP kI, kD
+                new PIDController(0.03, 0.0, 0.0),
+                // Close the loop using turn rate/angle
+                m_gyro::getAngleZ,
+                // Setpoint is 0 for straight driving
+                0,
+                // Pipe output to the turning param of diffDriv method
+                output -> m_drive.arcaDriv(-m_controller.getLeftY()
+                      * 0.6, -output),
+                // Require robot drive (must be a subsyst)
+                m_drive));    
+   [appears to make a Run Cmd that's only active while button true]
+   
+ 
+   ============== SUBCLASS PID_COMMAND FOR AUTO OPERATION ============ 
+ -- CONTROLLER OUTPUTs TO A SUBSYS METHOD THAT BENEFITS w/ PID CONTROL(AUTO)
+src: romiGyroDrivPID-C  this turns to angle
+
+public class TurnToAngle extends PIDCommand {
+    /* @param targetAngleDegrees The angle to turn to
+    * @param drive - the drive subsystem to use  */
+  public TurnToAngle(double targetAngleDegree, DriveSubsys drive) {
+    super(new PIDController(kTurnP, kTurnI, kTurnD),
+        // Close loop using current heading
+        drive::getGyroAngleZ,
+        // Set reference to target
+        targetAngleDegree,
+        // Pipe output to turn robot, may need negation
+        output -> drive.arcaDrivP(0, output),
+        // Require the drive
+        drive);  // end super
+    // Set the controller to be continuous (it's an angle controller)
+    getController().enableContinuousInput(-180, 180);
+    //  the delta tolerance ensures the robot is stationary at the
+    // setpoint before it's considered to reach the reference
+    getController()  // may only work w/ profiled PID
+        .setTolerance(DriveConstants.kTurnTolerDeg, 
+               DriveConstants.kTurnRateTolerVeloc);
+  }  // end constructor
+  @Override
+  public boolean isFinished() {
+    return getController().atSetpoint();
+    
+    
+======= PID CONTROLLER USED IN CLASS METHOD CALLED BY AUTO CMD ====
+  src: chewbacc Arcade Cmd - B
+   /* PIDController objects are commanded to a set point using the 
+     * SetReference() method. 
+     * The first parameter is the value of the set point, whose units vary
+     * depending on the control type you set in the second parameter.
+     * The second parameter is the control type -- can be one of four values:
+     *  com.revrobotics.CANSparkMax.ControlType.kDutyCycle
+     *  com.revrobotics.CANSparkMax.ControlType.kPosition
+     *  com.revrobotics.CANSparkMax.ControlType.kVelocity
+     *  com.revrobotics.CANSparkMax.ControlType.kVoltage
+     *  example: m_pidControl.setReference(rotations,
+                      CANSparkMax.ControlType.kPosition);
+     */
+ setRefer() can also take 4-5 param, not clear why, where needed, maybe for
+ Velocity control where FF value is crucial? cf. this w/ 5190's Drivetrain.j
+ https://github.com/FRC5190/2023CompetitionSeason/blob/master/src/main/
+       java/org/ghrobotics/frc2023/subsystems/Drivetrain.java
+       
+    // SmartDashboard.putNumber("SetPoint", rotations);
+    // SmartDashboard.putNumber("ProcessVariable", m_encoder.getPosition());
+  
+  // both sides aim for same distance target via their own encoder.
+  // param received here in inches, controller config. converts to ticks
+  // called in periodic execute() of GoToPosition cmd, so don't zeroEnco here
+  public void goStraightPosition(double target) {
+      leftPIDControl.setReference(target,CANSparkMax.ControlType.kPosition);
+      rightPIDControl.setReference(target,CANSparkMax.ControlType.kPosition);
+  }
+
+
+   ======================== INNER CLASS FOR CONSTANTS ============  
+
+  // 5190 put this in subsys Drivetrain class as inner class; seems
+  // best to keep these numbers nearby in same class where used, especially
+  // when total use is in one class
+  public static class Constants {
+    // Motor Controller IDs
+    public static final int kLeftLeaderId = 3;
+    public static final int kLeftFollowerId = 4;
+    public static final int kRightLeaderId = 1;
+    public static final int kRightFollowerId = 2;
+
+    // Hardware
+    public static double kGearRatio = 10.18;
+    public static double kWheelRadius = 0.0762;
+    public static double kTrackWidth = 0.65921;
+
+    // Control
+    public static final double kLinearKv = 2.6642;
+    public static final double kLinearKa = 0.6999;
+    public static final double kAngularKv = 2.9663;
+    public static final double kAngularKa = 0.5675; 
+    
+ ================== MAKE RUN ONCE COMMAND FROM CLASS METHOD ===========
+    ? for auto, button activated operation?
+// src: WPIlib programming/ treat function as data
+    // Create an InstantCommand that runs the resetEncoders() method 
+    // of the drivetrain object, method must be Runnable (no param allowed)
+Command zeroComd = [Commands.]runOnce(drivetrain::resetEncoders, drivetrain);
+
+//src WPILIb PID control thru PID subsystems
+      BUILD RUN-ONCE COMMAND FROM SUBSYSTEM METHOD
+     method must be 'Runnable'
+  private final Command m_spinUpShooter = Commands.runOnce
+         (m_shooter::enable, m_shooter);
+  private final Command m_stopShooter = Commands.runOnce
+          (m_shooter::disable, m_shooter);
+
+    // Spin up the shooter when the 'A' button is pressed
+    m_driverController.a().onTrue(m_spinUpShooter);
+   //  onTrue requires a command param
+    // Turn off the shooter when the 'B' button is pressed
+    m_driverController.b().onTrue(m_stopShooter);
+    
+    
+========  USING LAMBDA to SET DEFAULT COMMAND, USING TRIGGER BUTTON ============
+  src. romi traj rams A 's RC
+  docs.wpilib.org/en/stable/docs/software/basic-programming/functions-as-data
+      
+      private void configureButtonBindings() {
+    // makes Default command be arcaDrive, to Run unless another command
+    // is scheduled over it <-- Separate control path for teleOp vs. auto
+   m_drivetrain.setDefaultCommand(
+        new RunCommand(() -> m_drivetrain.arcaDriv(
+            -m_controller.getRawAxis(1), 
+            m_controller.getRawAxis(4)),
+            m_drivetrain));
+            
+  Two ways to create trigger button to activate an instant / run command
+    // Example of how to use Romi onboard IO class
+    Trigger onboardButtonA = new Trigger(m_onboardIO::getButtonAPressed);
+    onboardButtonA
+        .onTrue(new PrintCommand("Button A Pressed"))
+        .onFalse(new PrintCommand("Button A Released"));
+    OR, without instancing trigger button,
+    // test volt drive method for drivetrain, press L bumper button
+    new JoystickButton(m_controller, 5) // should cause spin in place
+        .whileTrue(new RunCommand(() -> m_drivetrain.tankDriveVolts
+               (2.0, -1.0), m_drivetrain));
+
+
+    
