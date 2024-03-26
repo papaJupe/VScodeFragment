@@ -140,7 +140,7 @@ src: RomiGyroDrivePID-C
  
    ============== SUBCLASS PID_COMMAND FOR AUTO OPERATION ============ 
  -- CONTROLLER OUTPUTs TO A SUBSYS METHOD THAT BENEFITS w/ PID CONTROL(AUTO)
-src: romiGyroDrivPID-C  this turns to angle
+src: romiGyroDrivPID-C  this turns to specified angle
 
 public class TurnToAngle extends PIDCommand {
     /* @param targetAngleDegrees The angle to turn to
@@ -159,7 +159,7 @@ public class TurnToAngle extends PIDCommand {
     getController().enableContinuousInput(-180, 180);
     //  the delta tolerance ensures the robot is stationary at the
     // setpoint before it's considered to reach the reference
-    getController()  // may only work w/ profiled PID
+    getController()  // these settings may only work w/ profiled PID
         .setTolerance(DriveConstants.kTurnTolerDeg, 
                DriveConstants.kTurnRateTolerVeloc);
   }  // end constructor
@@ -202,7 +202,7 @@ public class TurnToAngle extends PIDCommand {
    ======================== INNER CLASS FOR CONSTANTS ============  
 
   // 5190 put this in subsys Drivetrain class as inner class; seems
-  // best to keep these numbers nearby in same class where used, especially
+  // best to keep these numbers nearby, in same class where used, especially
   // when total use is in one class
   public static class Constants {
     // Motor Controller IDs
