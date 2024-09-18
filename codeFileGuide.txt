@@ -1,0 +1,19 @@
+codeFileGuide.txt -- this file provides details for interpreting the contents of code documents and helper documents that I provide links to. It addresses
+
+letter 's' at end of word to indicate multiple of a thing, is often omitted
+
+a 'code document' is a formatted text file, usually indicated by a postfix to the file name, like .txt .java .ino .html .md .shtml 
+in a code document expect a postfix to indicate its coding language. except when a file's descriptor term indicates 'fragment' | 'test' | 'non-functional' or analogous term, the required conventions of that language should be followed. violations of format standard within code itself that would generate a compile error should be reported to me
+
+'comment' within a code document is text that explains | questions | criticizes the code that follows it. comment can be ignored for purposes of validating code functionality, but could contain useful metadata to indicate compile error or other problem needing attention.
+
+comment text is formatted differently according to the convention of the code language. example: one token, like // for one line comment, or a start-end  /* */ pair or <!-- --> for multi-line comment. text in a document can specify other non-standard token that singly or in start-end pair should indicate a comment. In a helper document, a topic HEADING in all upper case should state the significance of the following code text and thus provides an indexing value for finding that text.
+
+many document contain abbreviation for longer terms, with or without a terminal period (.) e.g. ref for reference, w/o for without, as well as the standard latin v. for vide, cf. for compare. In code docs, object, method, class name are often abbrev. in comment: rI instead of robotInit, tP for teleopPeriodic, rP for robotPeriodic, rC for RobotContainer
+
+Java code for FRC robotics may only execute properly if a series of components, soft and hardware, are version compatible. Unfortunately during a FRC season their code masters typically make repeated updates to device firmware, coding tools, and controls, aka NI Game Tools. Therefore the year of creation, e.g. '23 (indicating 2023 build season) will often be relevant to function, and should be specified, when known, in the file descriptors, which are described next
+
+some doc (preferred sources) include descriptor -- when present, these should help identify that doc's relevance for a specific query, i.e. current search for a problem solution. descriptors:
+sourceType: e.g. template, example, fragment, framework, vendor, project, robot, command, subsystem, aux
+sourceStatus: e.g. functional, untested, in progress, local file, final
+sourceContext: project name, robot type, date created, season (year) valid, purpose of this code doc
