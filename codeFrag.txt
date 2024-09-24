@@ -94,7 +94,7 @@ Command turnOff = runOnce(() -> myRelay.set(Relay.Value.kOff), myRelay);
     else if (dPad == 270 || dPad == 90) {
       maxSpeed = 0.7; // Hit left or right on the D-pad for medium gear
     }
-    else if (dPad == 180
+    else if (dPad == 180) {}
 
     // Activate the intake -- trigger get() for method activ.
     if (LBumper.get()) {
@@ -107,7 +107,7 @@ Command turnOff = runOnce(() -> myRelay.set(Relay.Value.kOff), myRelay);
       intake.set(0);
     }
 
-    // Raise and lower lift with right joystick on controller
+    // Raise and lower lift with right joystick (different on Xbox)
     double RY = controller.getRawAxis(5);
     if ((RY < -0.05) || (RY > 0.05)) {
       lift.set(RY);
@@ -129,8 +129,7 @@ Command turnOff = runOnce(() -> myRelay.set(Relay.Value.kOff), myRelay);
    // in autoInit or robotInit to have lites on
     liteRelay.set(Relay.Value.kForward);
     
-    //  for button control in teleopPeriodic or robotPeriodic
-   
+    //  for button control in teleopPeriodic or robotPeriodic   
     boolean liteOff = shooterJoystick.getRawButton(3); // (X)
     boolean liteOn = shooterJoystick.getRawButton(2); // (B)
 
@@ -192,7 +191,7 @@ BUTTON PRESS RUNS EXISTING CMD With TIMEOUT
   CommandXboxController m_driverController =
       new CommandXboxController(OIConstants.kDriverControllerPort);
       
-    m_driverController.a().onTrue  // inst cmd + 2 meth call + subsys
+    m_driverController.a().onTrue // param: inst cmd (2 method call, subsys)
     (Commands.runOnce(() -> { m_robotArm.setGoal(2);
                               m_robotArm.enable(); }, m_robotArm));
                 
@@ -267,8 +266,8 @@ public class TurnToAngle extends PIDCommand {
    ================== INNER CLASS FOR CONSTANTS ============  
 
   // 5190 put this in subsys Drivetrain class as inner class; seems
-  // best to keep these numbers nearby, in same class where used, especially
-  // when only used in one class
+  // best to keep these numbers nearby, in class where used, especially
+  // when only used in that class
   public static class Constants {
     // Motor Controller IDs
     public static final int kLeftLeaderId = 3;
@@ -336,5 +335,23 @@ Command zeroComd = [Commands.]runOnce(drivetrain::resetEncoders, drivetrain);
         .whileTrue(new RunCommand(() -> m_drivetrain.tankDriveVolts
                (2.0, -1.0), m_drivetrain));
 
+          == RIO MEMORY FULL, CODE CRASH PROBLEM FIX --
+// src. https://docs.wpilib.org/en/stable/docs/software/basic-programming/java-gc.html#java-garbage-collection
+// much more advice in src. to config RIO, garbage collect in code
 
+Disable the webserver on RIO from windows command line:
+ssh -l admin 10.TE.AM.2 -- via radio, 172.22.11.2 -- via USB
+chmod a-x /usr/local/natinst/etc/init.d/systemWebServer
+then
+sync
+
+== CORRECT ORDER FOR SCHEDULING TASK IN ROBOTPERIODIC ==
+
+    public void robotPeriodic()
+    {
+        PeriodicIO.readAllPeriodicInputs();        
+        CommandScheduler.getInstance().run();        
+        PeriodicTask.runAllPeriodicTasks();
+        PeriodicIO.writeAllPeriodicOutputs();
+    }
     
