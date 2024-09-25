@@ -78,7 +78,7 @@ Command turnOff = runOnce(() -> myRelay.set(Relay.Value.kOff), myRelay);
       new JoystickButton(helperController, 1)
            .toggleonTrue(Commands.startEnd( same ....
            
-    // above show JoyBur object as TRIGGER, BUT SEEMS ALSO TO WORK AS BOOLEAN
+    // above show JoyButt object as TRIGGER, so also a Boolean supplier
     // source in this arm control example using POV pad & buttons:
     // in Robot.j class var; button numbers differ for Xbox pad
   Joystick controller = new Joystick(0);
@@ -88,7 +88,7 @@ Command turnOff = runOnce(() -> myRelay.set(Relay.Value.kOff), myRelay);
   JoystickButton RBumper = new JoystickButton(controller, 11);
     
       // in tP, change gears
-    int dPad = controller.getPOV();
+    int dPad = controller.getPOV(); // return the angle which pressed
     if (dPad == 0) {
       maxSpeed = 0.8; // Hit up on the D-pad for high gear    }
     else if (dPad == 270 || dPad == 90) {
@@ -335,7 +335,7 @@ Command zeroComd = [Commands.]runOnce(drivetrain::resetEncoders, drivetrain);
         .whileTrue(new RunCommand(() -> m_drivetrain.tankDriveVolts
                (2.0, -1.0), m_drivetrain));
 
-          == RIO MEMORY FULL, CODE CRASH PROBLEM FIX --
+          == RIO RAM FULL, JVM CRASH FIX (IF UNABLE TO FIX CAUSE)--
 // src. https://docs.wpilib.org/en/stable/docs/software/basic-programming/java-gc.html#java-garbage-collection
 // much more advice in src. to config RIO, garbage collect in code
 
@@ -355,3 +355,8 @@ sync
         PeriodicIO.writeAllPeriodicOutputs();
     }
     
+  == TEMPLATE FOR SOURCETYPE, SOURCESTATUS ... FOR SEARCH, INDEXING  ==
+/* sourceType: noun +/- modifier
+* sourceStatus: working or not, tested or not, pending problem ...
+* useContext: execution envir, sim, purpose, date, compatibility,
+*/
