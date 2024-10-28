@@ -34,24 +34,7 @@ WPILib examples, 3rd party vendor, other FRC team online repository
     m_chooser.addOption("AutoDistance", new AutoDist(distance, m_drivetrain));
     m_chooser.addOption("AutoPath", new AutoPath(trajectory, m_drivetrain);
     
-    
-=== METHOD TO RETURN [TO .SETDEFAULT()] AN EXISTING CMD, WHICH GETS LIVE 
-    JOYSTICK PARAMETERS AS SUPPLIERS -- OVERLY COMPLEX WAY TO DO THIS ===  
-    // src: ROMI-REFE TEMPLATE'S RoboCont
-     // lambda use existing ArcaDriv method to make named Cmd on the fly
-    public Command getArcadeDriveCommand() { // saves making new Cmd class
-    return new ArcadeDrive(m_drivetrain, () -> -m_controller.getRawAxis(1),
-     () -> m_controller.getRawAxis(2));
-    }
-  
-// still lambda-obscure but a more compact way to set default:
- SET DEFAULT CMD TO NEW 'RUN CMD', MADE FROM SUBSYSTEM METHOD, ALSO AVOIDS
-    MAKING A NAMED CMD INSTANCE (OK IF OTHER SYSTEMS DON'T NEED IT TOO)
-        m_robotDrive.setDefaultCommand(
-        new RunCommand( () ->
-             m_robotDrive.arcadeDrive(-m_driverController.getLeftY(),
-                    -m_driverController.getRightX()), m_robotDrive));
-                    
+                      
   =================== FUN THINGS TO DO WITH BUTTONS  ==================   
 
 ==BUTTON PRESS TOGGLES RELAY ON, SECOND PRESS TOGGLES IT OFF (LED EXAMPLE)==
@@ -65,16 +48,17 @@ github.wpilib.org/allwpilib/docs/release/java/edu/wpi/first/wpilibj/Relay.html
 github.wpilib.org/allwpilib/docs/release/java/edu/wpi/first/wpilibj2/command/StartEndCommand.html
  -->
  // make relay and button instances (robotInit or RC constructor),
+   private final Relay myRelay = new Relay(0); // RIO relay port 0 
  // make trigger button on helper's controller (button A on Xbox)
-  Trigger liteButton = new JoystickButton(helperController, 1); // (A) 
-  // make Cmds for relay , ? would relay hold value
+  Trigger liteButton = new JoystickButton(helperController, 1); // (1=A) 
+  // make Cmds for relay, ? would relay hold value
 Command turnOn = runOnce(() -> myRelay.set(Relay.Value.kForward), myRelay);
 Command turnOff = runOnce(() -> myRelay.set(Relay.Value.kOff), myRelay);
-  private final Relay myRelay = new Relay(0); // RIO relay port 0 
-  //in Robot.java teleoPeriodic or robotPeriodic
+
+	// in Robot.java teleoPeriodic or robotPeriodic
   liteButton.toggleOnTrue(Commands.startEnd(myRelay::turnOn,
-    myRelay::turnOff, myRelay));
-   // alt: w/o instancing Button, hC may need to be CmdController
+    			myRelay::turnOff, myRelay));
+	// alt: w/o instancing Button, stick may need to be CmdController
       new JoystickButton(helperController, 1)
            .toggleonTrue(Commands.startEnd( same ....
            
@@ -88,16 +72,16 @@ Command turnOff = runOnce(() -> myRelay.set(Relay.Value.kOff), myRelay);
   JoystickButton RBumper = new JoystickButton(controller, 11);
     
       // in tP, change gears
-    int dPad = controller.getPOV(); // return the angle which pressed
+    int dPad = controller.getPOV(); // return the angle of POV pressed
     if (dPad == 0) {
-      maxSpeed = 0.8; // Hit up on the D-pad for high gear    }
+      maxSpeed = 0.8;} // press Up on the gamepad for high gear
     else if (dPad == 270 || dPad == 90) {
-      maxSpeed = 0.7; // Hit left or right on the D-pad for medium gear
+      maxSpeed = 0.7; // press left or right on the D-pad for medium gear
     }
     else if (dPad == 180) {}
 
     // Activate the intake -- trigger get() for method activ.
-    if (LBumper.get()) {
+    if (LBumper.get()) {  // do I need the get()?
       intake.set(-1); // Pull in
     }
     else if (RBumper.get()) {
@@ -117,7 +101,8 @@ Command turnOff = runOnce(() -> myRelay.set(Relay.Value.kOff), myRelay);
     }
 
   == ONE BUTTON TURNS ON RELAY, ANOTHER TURNS IT OFF -- assumes the Relay
-   object will hold last set values  ==
+   object will hold last setting, no lambda expression here. v.s. for toggle
+   button using lambda  ==
 <!-- 
   src: github.com/wpilibsuite/allwpilib/blob/main/wpilibjExamples/src/main/java/edu/wpi/first/wpilibj/examples/relay/Robot.java     
        github.wpilib.org/allwpilib/docs/release/java/edu/wpi/first/wpilibj/Relay.html
@@ -126,14 +111,14 @@ Command turnOff = runOnce(() -> myRelay.set(Relay.Value.kOff), myRelay);
    // in RobotInit or RC constructor (configButtonBinding)
    // given Xbox controller shooterJoystick, import wpilib.Relay library
    private final Relay liteRelay = new Relay(0); // on port 0
-   // in autoInit or robotInit to have lites on
+   // in autoInit or robotInit to have lites on at start
     liteRelay.set(Relay.Value.kForward);
     
     //  for button control in teleopPeriodic or robotPeriodic   
     boolean liteOff = shooterJoystick.getRawButton(3); // (X)
     boolean liteOn = shooterJoystick.getRawButton(2); // (B)
 
-    /* what the Relay.Value settings do: 
+    /* what the Relay.Value settings do: ? constant built in to class?
      * kOn sets both output pins to 12V, kOff sets both to 0V,
      * kForward sets forward pin (+) to 12V and reverse contact (-) to 0V,
      * kReverse sets reverse (-) pin to 12V, and forward (+) pin to 0V.
@@ -313,16 +298,27 @@ Command zeroComd = [Commands.]runOnce(drivetrain::resetEncoders, drivetrain);
 ==  USING LAMBDA to SET DEFAULT CMD, ACTIVATE W/ TRIGGER BUTTON =========
  /* src: romi traj rams A 's RC
   docs.wpilib.org/en/stable/docs/software/basic-programming/functions-as-data
-   */   
-      private void configureButtonBindings() {
+ */   SET DEFAULT CMD TO NEW 'RUN CMD', MADE FROM SUBSYSTEM METHOD, AVOIDS
+    MAKING A NAMED CMD INSTANCE (OK IF OTHER SYSTEMS DON'T NEED IT TOO)
+   private void configureButtonBindings() { // in RC, or rI
     // makes Default command be arcaDrive, to Run unless another command
-    // is scheduled over it <-- Separate control path for teleOp vs. auto
+    // is scheduled over it
    m_drivetrain.setDefaultCommand(
         new RunCommand(() -> m_drivetrain.arcaDriv(
             -m_controller.getRawAxis(1), 
             m_controller.getRawAxis(4)),
             m_drivetrain));
-      }      
+      }  
+      
+=== METHOD TO RETURN [TO .SETDEFAULT()] AN EXISTING CMD, WHICH GETS LIVE 
+    JOYSTICK PARAMETERS AS SUPPLIERS -- OVERLY COMPLEX WAY TO DO THIS ===  
+    // src: ROMI-REFE TEMPLATE'S RoboCont
+     // lambda use existing ArcaDriv method to make named Cmd on the fly
+    public Command getArcadeDriveCommand() { // saves making new Cmd class
+    return new ArcadeDrive(m_drivetrain, () -> -m_controller.getRawAxis(1),
+     () -> m_controller.getRawAxis(2));
+    }
+                       
 == Two ways to create trigger button to activate an instant / run command ==
     // Example using Romi onboard IO class
     Trigger onboardButtonA = new Trigger(m_onboardIO::getButtonAPressed);
