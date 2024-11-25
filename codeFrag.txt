@@ -138,7 +138,7 @@ Command turnOff = runOnce(() -> myRelay.set(Relay.Value.kOff), myRelay);
  // does InstComm require (missing here) subsys param to work? NO, may
  // implicitly supply the subsys in 1st param ?
               
-BUTTON PRESS RUNS EXISTING CMD With TIMEOUT
+==   BUTTON PRESS RUNS EXISTING CMD With TIMEOUT  ==
 // src: RomiGyroDrivePID-C RC constructor
     // Turn to 90 degrees when the 'B' button is pressed, 5 second timeout
     new JoystickButton(m_driverController, 2)
@@ -148,8 +148,12 @@ BUTTON PRESS RUNS EXISTING CMD With TIMEOUT
            // with a 5 second timeout
     new JoystickButton(m_driverController, 3)
         .onTrue(new TurnToAngleProfiled(-90, m_robotDrive).withTimeout(5));
-
-
+        
+  == BUTTON PRESS (ROBOTINIT VS. CONTAINER) TO INDEX SUBSYS DEVICE ==
+    new Trigger(() -> m_controller.getRightBumperPressed())
+    .onTrue(Commands.runOnce(() -> m_arm.indexArm(), m_arm));
+    
+    
 == BUTTON ACTIVATED PID COMMAND + CONTROLLER TO DRIVE STRAIGHT USING GYRO --
      FAST WAY TO PROVIDE PID CONTROL TO EXISTING SUBSYS METHOD  ==
 // src: RomiGyroDrivePID-C -- where it's in RC constructor (CBB)
@@ -341,7 +345,7 @@ chmod a-x /usr/local/natinst/etc/init.d/systemWebServer
 then
 sync
 
-== CORRECT ORDER FOR SCHEDULING TASK IN ROBOTPERIODIC ==
+			== CORRECT ORDER FOR SCHEDULING TASK IN ROBOTPERIODIC ==
 
     public void robotPeriodic()
     {
