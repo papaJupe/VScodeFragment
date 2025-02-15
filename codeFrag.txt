@@ -159,7 +159,7 @@ Command turnOff = runOnce(() -> myRelay.set(Relay.Value.kOff), myRelay);
 // src: RomiGyroDrivePID-C -- where it's in RC constructor (CBB)
    // Stabilize to drive straight w/ gyro when R bumper is held
     // in teleOp; can put in RC OR robotInit
-    new JoystickButton(m_controller, 6)
+    new JoystickButton(m_controller, 6)  (makes new Trigger)
         .whileTrue(
             new PIDCommand( // kP kI, kD
                 new PIDController(0.03, 0.0, 0.0),
@@ -189,7 +189,23 @@ Command turnOff = runOnce(() -> myRelay.set(Relay.Value.kOff), myRelay);
     m_driverController.rightBumper() // ? if this works w/o subsys param
         .onTrue(Commands.runOnce(() -> m_robotDrive.setMaxOutput(0.5)))
         .onFalse(Commands.runOnce(() -> m_robotDrive.setMaxOutput(1.0)));
- 
+        
+ == COMMAND COMPOSITIONS: Commands.runOnce()  + A PERIODIC ==
+ you can sequence Commands.runOnce() with other commands that support periodic execution:
+Commands.sequence(
+    Commands.runOnce(() -> initializeAction()),
+    Commands.run(() -> periodicAction())
+)
+This will run the initialization cmd once, then continuously run the periodic action.  (would the sequ. run in robotInit ?, before sched active?)
+
+ 				== SCHEDULING IN A PERIODIC METHOD ==
+You can schedule Commands.runOnce() from a periodic method:
+public void periodic() {
+    if (someCondition) {
+        CommandScheduler.getInstance().schedule(
+            Commands.runOnce(() -> myAction()));
+This approach allows you to trigger the one-time action periodically based on certain conditions.
+
    ============== SUBCLASS PID_COMMAND FOR AUTO OPERATION ============ 
  == CONTROLLER OUTPUTs TO SUBSYS METHOD THAT BENEFITS w/ PID CONTROL(AUTO) ==
 // src: romiGyroDrivPID-C  this turns to specified angle
