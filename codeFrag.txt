@@ -299,12 +299,37 @@ public class TurnToAngle extends PIDCommand {
     // of the drivetrain object, method must be Runnable (no param allowed)
 Command zeroComd = [Commands.]runOnce(drivetrain::resetEncoders, drivetrain);
 
+  == MAKE COMPOSITE CMD INSIDE SUBSYS, CALL FROM BUTTON/EVENT TRIGGER =
+   * Return command to shoot balls currently stored. Spin the shooter flywheel
+   * up to the specified setpoint, and then run feeder motor
+   * @param setpointRotationsPerSecond The desired shooter velocity
+
+  public Command shootCommand(double setpointRotationsPerSecond) {
+    return parallel(
+            // Run shooter flywheel using feedforward and feedback
+            run(() -> { m_shooterMotor.set(
+            m_shooterFeedforward.calculate(setpointRotPerSecond)
+            + m_shooterFeedback.calculate(m_shooterEncoder.getRate(),
+             setpointRotPerSecond));      }),
+            // Wait until shooter has reached setpoint, then run feeder
+            waitUntil(m_shooterFeedback::atSetpoint).andThen(
+            () -> m_feederMotor.set(1))).withName("Shoot");
+  }  // end shootCmd
+
+  this Cmd called w/ param from trigger made inside RC's configButtBind
+      m_driverController.a().onTrue(parallel(
+        m_shooter.shootCommand(ShooterConstants.kShooterTargetRPS),
+        m_storage.runCommand()).withName("Shoot")); // not same as RunCmd
+        // Since we composed this inline we should give it a name
+        
+
+    // Toggle compressor with the Start button -- what is this?    m_driverController.start().toggleOnTrue(m_pneum.disableCompressorCommand());
 
    ==   BUILD RUN-ONCE COMMAND FROM SUBSYSTEM METHOD ==
-   // src: WPILIb PID control thru PID subsystems
-// method must be 'Runnable'
+// src: WPILIb PID control thru PID subsystems (now deprec.)
+// method must be 'Runnable'; code inside subsyst;
   private final Command m_spinUpShooter = Commands.runOnce
-         (m_shooter::enable, m_shooter);
+         (m_shooter::enable, m_shooter); // ? 2nd param needed, use 'this'?
   private final Command m_stopShooter = Commands.runOnce
           (m_shooter::disable, m_shooter);
 
@@ -315,14 +340,14 @@ Command zeroComd = [Commands.]runOnce(drivetrain::resetEncoders, drivetrain);
     m_driverController.b().onTrue(m_stopShooter);
     
     
-==  USING LAMBDA to SET DEFAULT CMD, ACTIVATE W/ TRIGGER BUTTON =========
+==  USING LAMBDA to SET DEFAULT CMD, or ACTIVATE W/ TRIGGER BUTTON =====
  /* src: romi traj rams A 's RC
   docs.wpilib.org/en/stable/docs/software/basic-programming/functions-as-data
  */   SET DEFAULT CMD TO NEW 'RUN CMD', MADE FROM SUBSYSTEM METHOD, AVOIDS
-    MAKING A NAMED CMD INSTANCE (OK IF OTHER SYSTEMS DON'T NEED IT TOO)
+    MAKING A NAMED CMD class (OK IF OTHER SYSTEMS DON'T NEED IT TOO)
    private void configureButtonBindings() { // in RC, or rI
     // makes Default command be arcaDrive, to Run unless another command
-    // is scheduled over it
+    // is scheduled over it; only a subsyst instance allowed to have defCmd
    m_drivetrain.setDefaultCommand(
         new RunCommand(() -> m_drivetrain.arcaDriv(
             -m_controller.getRawAxis(1), 
@@ -330,11 +355,11 @@ Command zeroComd = [Commands.]runOnce(drivetrain::resetEncoders, drivetrain);
             m_drivetrain));
       }  
       
-=== METHOD TO RETURN [TO .SETDEFAULT()] AN EXISTING CMD, WHICH GETS LIVE 
+=== METHOD RETURNS [TO .SETDEFAULT()] AN EXISTING CMD, WHICH GETS LIVE 
     JOYSTICK PARAMETERS AS SUPPLIERS -- OVERLY COMPLEX WAY TO DO THIS ===  
-    // src: ROMI-REFE TEMPLATE'S RoboCont
-     // lambda use existing ArcaDriv method to make named Cmd on the fly
-    public Command getArcadeDriveCommand() { // saves making new Cmd class
+    // src: ROMI-REFE template's RoboCont
+    just ret. existing Cmd, why not put new AD itself in .setDefault???
+    public Command getArcadeDriveCommand() {
     return new ArcadeDrive(m_drivetrain, () -> -m_controller.getRawAxis(1),
      () -> m_controller.getRawAxis(2));
     }
@@ -345,7 +370,7 @@ Command zeroComd = [Commands.]runOnce(drivetrain::resetEncoders, drivetrain);
     onboardButtonA
         .onTrue(new PrintCommand("Button A Pressed"))
         .onFalse(new PrintCommand("Button A Released"));
-    OR, without instancing trigger button,
+	OR, without instancing trigger button,
     // test volt drive method for drivetrain, press L bumper button
     new JoystickButton(m_controller, 5) // should cause spin in place
         .whileTrue(new RunCommand(() -> m_drivetrain.tankDriveVolts
@@ -356,12 +381,11 @@ Command zeroComd = [Commands.]runOnce(drivetrain::resetEncoders, drivetrain);
 // much more advice in src. to config RIO, garbage collect in code
 
 Disable the webserver on RIO from windows command line:
-ssh -l admin 10.TE.AM.2 -- via radio, 172.22.11.2 -- via USB
+ssh -l admin 10.TE.AM.2 <-- via radio, 172.22.11.2 <-- via USB
 chmod a-x /usr/local/natinst/etc/init.d/systemWebServer
-then
-sync
+then sync
 
-			== CORRECT ORDER FOR SCHEDULING TASK IN ROBOTPERIODIC ==
+		== CORRECT ORDER FOR SCHEDULING TASK IN ROBOTPERIODIC ==
 
     public void robotPeriodic()
     {
