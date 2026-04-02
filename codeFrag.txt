@@ -8,7 +8,7 @@ sourceStatus: most were functional in some context at some time
 sourceContext: fragments extracted from working code repo's of M.alex, 
 WPILib examples, 3rd party vendor, other FRC team online repository
      
-================== SEQUENTIAL AUTO COMMAND ===================
+      ================== SEQUENTIAL AUTO COMMAND ===================
 // src: RomiBase AM-23
  public class AutonomousDistance extends SequentialCommandGroup {
   /* construct new Autonomous sequence using encoder-based distance.
@@ -29,7 +29,7 @@ WPILib examples, 3rd party vendor, other FRC team online repository
 }  // end class
     
 
- ==== CONFIG SMARTDASHBOARD AUTO OPTIONS WHEN OPTIONS ARE COMMANDS =====
+   ==== CONFIG SMARTDASHBOARD AUTO OPTIONS WHEN OPTIONS ARE COMMANDS =====
     m_chooser.setDefaultOption("AutoTrajRams", generateRamseteCommand());
     m_chooser.addOption("AutoDistance", new AutoDist(distance, m_drivetrain));
     m_chooser.addOption("AutoPath", new AutoPath(trajectory, m_drivetrain);
@@ -136,7 +136,7 @@ Command turnOff = runOnce(() -> myRelay.set(Relay.Value.kOff), myRelay);
         .onTrue(new InstantCommand(() -> m_robotDrive.setMaxOutput(0.5)))
         .onFalse(new Command(() -> m_robotDrive.setMaxOutput(1)));
  // does InstComm require (missing here) subsys param to work? NO, may
- // implicitly supply the subsys in 1st param ?
+ // implicitly supply the subsys in 1st param, ? always
               
 ==   BUTTON PRESS RUNS EXISTING CMD With TIMEOUT  ==
 // src: RomiGyroDrivePID-C RC constructor
@@ -153,26 +153,6 @@ Command turnOff = runOnce(() -> myRelay.set(Relay.Value.kOff), myRelay);
     new Trigger(() -> m_controller.getRightBumperPressed())
     .onTrue(Commands.runOnce(() -> m_arm.indexArm(), m_arm));
     
-    
-== BUTTON ACTIVATED PID COMMAND + CONTROLLER TO DRIVE STRAIGHT USING GYRO --
-     FAST WAY TO PROVIDE PID CONTROL TO EXISTING SUBSYS METHOD  ==
-// src: RomiGyroDrivePID-C -- where it's in RC constructor (CBB)
-   // Stabilize to drive straight w/ gyro when R bumper is held
-    // in teleOp; can put in RC OR robotInit
-    new JoystickButton(m_controller, 6)  (makes new Trigger)
-        .whileTrue(
-            new PIDCommand( // kP kI, kD
-                new PIDController(0.03, 0.0, 0.0),
-                // Close the loop using turn rate/angle
-                m_gyro::getAngleZ,
-                // Setpoint is 0 for straight driving
-                0,
-                // Pipe output to the turning param of diffDriv method
-                output -> m_drive.arcaDriv(-m_controller.getLeftY()
-                      * 0.6, -output),
-                // Require robot drive (must be a subsyst instance)
-                m_drive));    
- //  [appears to make a Run Cmd that's only active while button true]
 
 == BUTTON -->'INSTANT' COMMANDS -- NEED COMMAND_CONTROLER, RC or RI ==
 // src: ~/VSpace/REVexampleFRCode/armbot_ProfilePositPID-orig/RobotCont
@@ -206,7 +186,7 @@ public void periodic() {
             Commands.runOnce(() -> myAction()));
 This approach allows you to trigger the one-time action periodically based on certain conditions.
 
-   ============== SUBCLASS PID_COMMAND FOR AUTO OPERATION ============ 
+   ============== SUBCLASS PID_COMMAND FOR AUTO NOW DEFUNCT ============ 
  == CONTROLLER OUTPUTs TO SUBSYS METHOD THAT BENEFITS w/ PID CONTROL(AUTO) ==
 // src: romiGyroDrivPID-C  this turns to specified angle
 
@@ -237,10 +217,41 @@ public class TurnToAngle extends PIDCommand {
     return getController().atSetpoint();
     }
 } // end class
+
+    == HUGELY IMPROVE ROMI TURN ACCURACY VS. ANGLE FEEDBACK ONLY ==
+  //src. romiGyroDrivPID-C-25
+    /*  added PID calc of FF V to angle error FB, to Turn cmd's rot factor, using non-profil controller
+   * this inline Cmd can go in drive subsys, called by RC auto
+   * return command to turn to angle using std PIDcontroller & super's aD cmd (not squared)
+   * <-- best for small rot factor, now ? sched. 5x for every 0.1 sec update period in PID control definition
+   *  the (setpt-now) error has same polarity as needed rot correction so 
+   *  I invert super's aD, as with joystk; 
+   */
+  public Command turnToAngleCmd(double angleDeg) {
+    return runOnce(() -> {
+      m_gyro.reset();
+      p_controller.reset();
+      p_controller.setSetpoint(angleDeg); // ? need, before i only did calc.
+    })   
+    // inconsistent axis naming --> here x speed is fwd/bak
+    // to improve accuracy I add calc FF to run()
+    .andThen(run(() -> {   // now calc rot correction using FF and angle
+            // error = setpoint - process var; still acquir Q loop?
+      double error = angleDeg - m_gyro.getAngleZ();  // cusTuned multipl. v.i.
+      double ffVoltage = DriveConstants.kvVoltSecondsPerDegree * (error / 8.0);  
+          //scale error to KVS and slower calc period affecting FF
+      m_diffDrive.arcadeDrive(0, -(p_controller.calculate(m_gyro.getAngleZ(), angleDeg) + ffVoltage) * rotFactor);  // rot correction = FB + FF
+                      } ) // end run
+            ) // end andThen
+        .until(p_controller::atSetpoint) // if true, interrupt ends cmd
+        .finallyDo(interrupted -> arcaDriv(0, 0));
+  } // end tTA Cmd
+  
+    
     
 ===== REV PID CONTROLLER USED IN CLASS METHOD CALLED BY AUTO CMD ====
  // src: chewbacc Arcade Cmd - B
-   /* PIDController objects are commanded to a set point using the 
+    /* PIDController objects are commanded to a set point using the 
      * SetReference() method. 
      * The first parameter is the value of the set point, whose units vary
      * depending on the control type you set in the second parameter.
@@ -256,7 +267,7 @@ public class TurnToAngle extends PIDCommand {
  Velocity control where FF value is crucial? cf. this w/ 5190's Drivetrain.j
  https://github.com/FRC5190/2023CompetitionSeason/blob/master/src/main/
        java/org/ghrobotics/frc2023/subsystems/Drivetrain.java
-   */   
+      
     // SmartDashboard.putNumber("SetPoint", rotations);
     // SmartDashboard.putNumber("ProcessVariable", m_encoder.getPosition());
   
@@ -272,7 +283,7 @@ public class TurnToAngle extends PIDCommand {
 
   // 5190 put this in subsys Drivetrain class as inner class; seems
   // best to keep these numbers nearby, in class where used, especially
-  // when only used in that class
+  // when only used in that class; Constant.j good where variously used
   public static class Constants {
     // Motor Controller IDs
     public static final int kLeftLeaderId = 3;
@@ -292,9 +303,9 @@ public class TurnToAngle extends PIDCommand {
     public static final double kAngularKa = 0.5675; 
 } 
  ============ MAKE RUN ONCE COMMAND FROM CLASS METHOD ===========
-  //  ? for auto, button activated operation?
-// src: WPIlib programming / treat function as data
-// appears these format require Subsys instance parameter 
+     //  ? for auto, button activated operation?
+    // src: WPIlib programming / treat function as data
+    // appears these format require Subsys instance parameter 
     // Create an InstantCommand that runs the resetEncoders() method 
     // of the drivetrain object, method must be Runnable (no param allowed)
 Command zeroComd = [Commands.]runOnce(drivetrain::resetEncoders, drivetrain);
@@ -323,11 +334,11 @@ Command zeroComd = [Commands.]runOnce(drivetrain::resetEncoders, drivetrain);
         // Since we composed this inline we should give it a name
         
 
-    // Toggle compressor with the Start button -- what is this?    m_driverController.start().toggleOnTrue(m_pneum.disableCompressorCommand());
+    // Toggle compressor with the Start button -- what is start butt?    m_driverController.start().toggleOnTrue(m_pneum.disableCompressorCommand());
 
    ==   BUILD RUN-ONCE COMMAND FROM SUBSYSTEM METHOD ==
 // src: WPILIb PID control thru PID subsystems (now deprec.)
-// method must be 'Runnable'; code inside subsyst;
+// method must be 'Runnable'; code inside SUBSYST;
   private final Command m_spinUpShooter = Commands.runOnce
          (m_shooter::enable, m_shooter); // ? 2nd param needed, use 'this'?
   private final Command m_stopShooter = Commands.runOnce
@@ -343,7 +354,7 @@ Command zeroComd = [Commands.]runOnce(drivetrain::resetEncoders, drivetrain);
 ==  USING LAMBDA to SET DEFAULT CMD, or ACTIVATE W/ TRIGGER BUTTON =====
  /* src: romi traj rams A 's RC
   docs.wpilib.org/en/stable/docs/software/basic-programming/functions-as-data
- */   SET DEFAULT CMD TO NEW 'RUN CMD', MADE FROM SUBSYSTEM METHOD, AVOIDS
+ */  SET DEFAULT CMD TO NEW 'RUN CMD', MADE FROM SUBSYSTEM METHOD, AVOIDS
     MAKING A NAMED CMD class (OK IF OTHER SYSTEMS DON'T NEED IT TOO)
    private void configureButtonBindings() { // in RC, or rI
     // makes Default command be arcaDrive, to Run unless another command
@@ -352,13 +363,13 @@ Command zeroComd = [Commands.]runOnce(drivetrain::resetEncoders, drivetrain);
         new RunCommand(() -> m_drivetrain.arcaDriv(
             -m_controller.getRawAxis(1), 
             m_controller.getRawAxis(4)),
-            m_drivetrain));
+            m_drivetrain));  // last subsys param may be optional
       }  
       
-=== METHOD RETURNS [TO .SETDEFAULT()] AN EXISTING CMD, WHICH GETS LIVE 
+=== METHOD in RC RETURNS AN EXISTING CMD (also in RC) WHICH GETS LIVE 
     JOYSTICK PARAMETERS AS SUPPLIERS -- OVERLY COMPLEX WAY TO DO THIS ===  
     // src: ROMI-REFE template's RoboCont
-    just ret. existing Cmd, why not put new AD itself in .setDefault???
+   
     public Command getArcadeDriveCommand() {
     return new ArcadeDrive(m_drivetrain, () -> -m_controller.getRawAxis(1),
      () -> m_controller.getRawAxis(2));
@@ -376,7 +387,7 @@ Command zeroComd = [Commands.]runOnce(drivetrain::resetEncoders, drivetrain);
         .whileTrue(new RunCommand(() -> m_drivetrain.tankDriveVolts
                (2.0, -1.0), m_drivetrain));
 
-          == RIO RAM FULL, JVM CRASH FIX (IF UNABLE TO FIX CAUSE)--
+      == RIO RAM FULL, JVM CRASH FIX (IF UNABLE TO FIX CAUSE) ==
 // src. https://docs.wpilib.org/en/stable/docs/software/basic-programming/java-gc.html#java-garbage-collection
 // much more advice in src. to config RIO, garbage collect in code
 
